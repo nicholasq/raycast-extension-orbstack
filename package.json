@@ -3,11 +3,10 @@
   "name": "orbstack",
   "title": "OrbStack",
   "description": "Manage OrbStack with Raycast",
-  "icon": "extension-icon.png",
+  "icon": "orbstack.png",
   "author": "nicholasq",
   "platforms": [
-    "macOS",
-    "Windows"
+    "macOS"
   ],
   "categories": [
     "Developer Tools"
@@ -15,10 +14,16 @@
   "license": "MIT",
   "commands": [
     {
-      "name": "list",
-      "title": "list",
-      "description": "List vms and containers",
-      "mode": "no-view"
+      "name": "machine_list",
+      "title": "Manage Machines",
+      "description": "Manage machines in OrbStack",
+      "mode": "view"
+    },
+    {
+      "name": "machine_create",
+      "title": "Create Machine",
+      "description": "Create a new machine in OrbStack",
+      "mode": "view"
     }
   ],
   "dependencies": {

@@ -15,17 +15,60 @@
   "commands": [
     {
       "name": "machine_list",
-      "title": "Manage Machines",
-      "description": "Manage machines in OrbStack",
+      "title": "Machine List",
+      "description": "List and manage machines",
       "mode": "view"
     },
     {
       "name": "machine_create",
-      "title": "Create Machine",
-      "description": "Create a new machine in OrbStack",
+      "title": "Machine Create",
+      "description": "Create a new machine",
+      "mode": "view"
+    },
+    {
+      "name": "config_show",
+      "title": "Config Show",
+      "description": "Display OrbStack configuration",
       "mode": "view"
     }
   ],
+  "tools": [
+    {
+      "name": "machine_list",
+      "title": "Machine List",
+      "description": "List all OrbStack Machines"
+    },
+    {
+      "name": "machine_info",
+      "title": "Machine Info",
+      "description": "Info for an OrbStack Machine"
+    },
+    {
+      "name": "machine_execute_command",
+      "title": "Machine Run Command",
+      "description": "Execute a shell command in an OrbStack Machine"
+    },
+    {
+      "name": "machine_open",
+      "title": "Machine Open Terminal",
+      "description": "Open a terminal for an OrbStack Machine"
+    },
+    {
+      "name": "machine_create",
+      "title": "Machine Create",
+      "description": "Create a new machine"
+    }
+  ],
+  "ai": {
+    "evals": [
+      {
+        "input": "@orbstack list my machines"
+      },
+      {
+        "input": "@orbstack can you install fish shell in ubuntu?"
+      }
+    ]
+  },
   "dependencies": {
     "@raycast/api": "^1.103.5",
     "@raycast/utils": "^1.17.0"

@@ -1,3 +1,5 @@
+import { exec } from "child_process";
+import { promisify } from "util";
 import { Icon } from "@raycast/api";
 
 export function getStatusIcon(status: string) {
@@ -12,3 +14,5 @@ export function getStatusIcon(status: string) {
       return { source: Icon.QuestionMark, tintColor: "gray" };
   }
 }
+
+export const execAsync = promisify(exec);

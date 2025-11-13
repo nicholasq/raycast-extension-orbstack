@@ -1,134 +1,145 @@
-import { List, ActionPanel, Action, showToast, Toast } from "@raycast/api";
-import { useExec } from "@raycast/utils";
-import { useMemo, useState } from "react";
-import { OrbMachine } from "./orbstack";
+import { List, ActionPanel, Action, Icon } from "@raycast/api";
+import { useState } from "react";
 import { getStatusIcon } from "./utils";
+import CommandExecute from "./command_execute";
+import MachineCreate from "./machine_create";
+import { useMachineList, useMachineStateTransition, useMachineInfo } from "./hooks";
 
-type MachineState = "running" | "stopped" | "stopping";
+export default function MachineList() {
+  const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
+  const { machines, isLoadingMachineList, revalidateMachineList } = useMachineList();
+  const { startTransition, isTransitioningState } = useMachineStateTransition(revalidateMachineList);
+  const { machineInfo, isLoadingMachineInfo } = useMachineInfo(selectedMachine);
 
-class StateTransition {
-  id: string;
-  currentState: string;
-  requestedState: MachineState;
-
-  constructor(machine: OrbMachine, requestedState: MachineState) {
-    this.id = machine.id;
-    this.currentState = machine.state;
-    this.requestedState = requestedState;
-  }
-
-  execute(): boolean {
-    if (this.currentState === "stopped" && this.requestedState === "running") {
-      return true;
-    }
-    if (this.currentState === "running" && this.requestedState === "stopped") {
-      return true;
-    }
-    return false;
-  }
-
-  command(): string[] {
-    if (this.requestedState === "running" && this.currentState === "stopped") {
-      return ["start", this.id];
-    } else if (this.requestedState === "stopped" && this.currentState === "running") {
-      return ["stop", this.id];
-    }
-    return [];
-  }
-}
-
-export default function Command() {
-  const {
-    data,
-    isLoading: isLoadingList,
-    revalidate,
-  } = useExec("orbctl", ["list", "--format", "json"], {
-    onError: (e) => {
-      showToast({
-        title: "Error",
-        message: e.message,
-        style: Toast.Style.Failure,
-      });
-    },
-  });
-  const [stateTransition, setStateTransition] = useState<StateTransition | null>(null);
-  const { isLoading: machineTransitioning } = useExec("orbctl", stateTransition?.command() ?? [], {
-    execute: stateTransition?.execute() ?? false,
-    onData: () => {
-      setStateTransition(null);
-      revalidate();
-    },
-    onError: (e) => {
-      setStateTransition(null);
-      revalidate();
-      showToast({
-        title: "Error",
-        message: e.message,
-        style: Toast.Style.Failure,
-      });
-    },
-  });
-
-  const machines: OrbMachine[] = useMemo(() => {
-    if (data) {
-      return JSON.parse(data) as OrbMachine[];
-    }
-    return [];
-  }, [data]);
-
-  if (isLoadingList) {
+  if (isLoadingMachineList) {
     return <List isLoading={true}></List>;
   }
 
   return (
-    <List isLoading={machineTransitioning}>
+    <List
+      isLoading={isTransitioningState || isLoadingMachineInfo}
+      isShowingDetail={machineInfo !== null}
+      onSelectionChange={(name) => {
+        setSelectedMachine(name);
+      }}
+    >
       {machines.map((machine) => (
         <List.Item
           key={machine.id}
+          id={machine.name}
           title={machine.name}
-          subtitle={`${machine.image.distro} ${machine.image.version} (${machine.image.arch}) [${machine.state}]`}
           icon={getStatusIcon(machine.state)}
+          detail={
+            <List.Item.Detail
+              metadata={
+                <List.Item.Detail.Metadata>
+                  {machineInfo && selectedMachine === machine.name ? (
+                    <>
+                      <List.Item.Detail.Metadata.Label
+                        title="State"
+                        text={machineInfo.record.state}
+                        icon={Icon.Power}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Distro"
+                        text={machineInfo.record.image.distro}
+                        icon={Icon.Box}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Version"
+                        text={machineInfo.record.image.version}
+                        icon={Icon.Tag}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Architecture"
+                        text={machineInfo.record.image.arch}
+                        icon={Icon.ComputerChip}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Default Username"
+                        text={machineInfo.record.config.default_username}
+                        icon={Icon.Person}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Isolated"
+                        text={machineInfo.record.config.isolated ? "Yes" : "No"}
+                        icon={Icon.Lock}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Disk Size"
+                        text={`${(machineInfo.disk_size / 1000 / 1000).toFixed(1)} MB`}
+                        icon={Icon.HardDrive}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Built-in"
+                        text={machineInfo.record.builtin ? "Yes" : "No"}
+                        icon={Icon.Star}
+                      />
+                    </>
+                  ) : (
+                    <List.Item.Detail.Metadata.Label title="Select a machine" text="Choose a machine to view details" />
+                  )}
+                </List.Item.Detail.Metadata>
+              }
+            />
+          }
           actions={
             <ActionPanel>
               {machine.state === "running" ? (
                 <Action
-                  title="Stop Machine"
+                  title="Stop"
                   onAction={() => {
-                    setStateTransition(new StateTransition(machine, "stopped"));
-                    showToast({
-                      title: "Stopping",
-                      style: Toast.Style.Animated,
-                    }).then((t) => {
-                      setTimeout(() => {
-                        t.hide();
-                      }, 2000);
-                    });
+                    startTransition(machine, "stopped");
                   }}
                 />
               ) : (
                 <Action
-                  title="Start Machine"
+                  title="Start"
                   onAction={() => {
-                    setStateTransition(new StateTransition(machine, "running"));
-                    // Machines start nearly instantly so this toast almost seems unnecessary but I think it gives
-                    // a little better UX since the user can clearly see their action was executed.
-                    showToast({
-                      title: "Starting",
-                      style: Toast.Style.Animated,
-                    }).then((t) => {
-                      setTimeout(() => {
-                        t.hide();
-                      }, 1000);
-                    });
+                    startTransition(machine, "running");
                   }}
                 />
               )}
+              <Action.Open
+                title="SSH"
+                target={`ssh://${machine.config.default_username}@${machine.name}@orb`}
+                shortcut={{ modifiers: ["cmd"], key: "o" }}
+              />
               <Action
                 title="Refresh"
                 shortcut={{ modifiers: ["cmd"], key: "r" }}
                 onAction={() => {
-                  revalidate();
+                  revalidateMachineList();
                 }}
+              />
+              <Action.Push
+                title="Info"
+                target={<CommandExecute name={machine.name} title={"Info"} command={["info", machine.name]} />}
+                shortcut={{ modifiers: ["cmd"], key: "i" }}
+              />
+              <Action.Push
+                title="Logs"
+                target={<CommandExecute name={machine.name} title={"Logs"} command={["logs", machine.name]} />}
+                shortcut={{ modifiers: ["cmd"], key: "l" }}
+              />
+              <Action.Push
+                title="Create"
+                target={<MachineCreate refresh={revalidateMachineList} />}
+                shortcut={{ modifiers: ["cmd"], key: "n" }}
+              />
+              <Action.Push
+                title="Delete"
+                target={
+                  <CommandExecute
+                    name={machine.name}
+                    title={"Delete Machine"}
+                    command={["delete", "-f", machine.name]}
+                    markdown={`WARNING: This will PERMANENTLY DELETE ALL DATA in the following machines:\n\n>\`${machine.name}\`\n\nYou cannot undo this action.`}
+                    requireConfirmation={true}
+                    refresh={revalidateMachineList}
+                  />
+                }
+                shortcut={{ modifiers: ["cmd", "shift"], key: "d" }}
               />
             </ActionPanel>
           }

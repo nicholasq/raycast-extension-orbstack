@@ -1,66 +1,62 @@
 import { ActionPanel, Action, Form, showToast, Toast } from "@raycast/api";
 import { useForm, FormValidation, useExec } from "@raycast/utils";
 import { useState } from "react";
-import { Architecture, Distro } from "./orbstack";
+import { ORB_CTL, DISTROS, ARCHITECTURES } from "./orbstack";
 
-export const DISTROS: { value: Distro; title: string }[] = [
-  { value: "alma", title: "AlmaLinux" },
-  { value: "alpine", title: "Alpine Linux" },
-  { value: "arch", title: "Arch Linux" },
-  { value: "centos", title: "CentOS" },
-  { value: "debian", title: "Debian" },
-  { value: "devuan", title: "Devuan" },
-  { value: "fedora", title: "Fedora" },
-  { value: "gentoo", title: "Gentoo" },
-  { value: "kali", title: "Kali Linux" },
-  { value: "nixos", title: "NixOS" },
-  { value: "openeuler", title: "openEuler" },
-  { value: "opensuse", title: "openSUSE" },
-  { value: "oracle", title: "Oracle Linux" },
-  { value: "rocky", title: "Rocky Linux" },
-  { value: "ubuntu", title: "Ubuntu" },
-  { value: "void", title: "Void Linux" },
-];
-
-export const ARCHITECTURES: { value: Architecture; title: string }[] = [
-  { value: "arm64", title: "arm64" },
-  { value: "amd64", title: "x86_64" },
-];
-
-interface CreateMachineFormValues {
-  name: string;
+interface Machine {
   distro: string;
+  name: string;
   arch: string;
+  user?: string;
+  version?: string;
 }
 
-export default function Command() {
-  const [machine, setMachine] = useState<{ distro: string; name: string; arch: string } | null>(null);
-  const { isLoading } = useExec(
-    "orbctl",
-    ["create", "-a", machine?.arch ?? "", machine?.distro ?? "", machine?.name ?? ""],
-    {
-      execute: machine !== null,
-      timeout: 60000, // machine creation can take a bit so let's wait at least a minute.
-      onData: () => {
-        showToast({
-          title: "Machine Created",
-          message: "Machine has been successfully created.",
-          style: Toast.Style.Success,
-        });
-        setMachine(null);
-      },
-      onError: (e) => {
-        showToast({
-          title: "Machine Creation Failed",
-          message: e.message,
-          style: Toast.Style.Failure,
-        });
-        setMachine(null);
-      },
-    },
-  );
+interface MachineCreateProps {
+  refresh?: () => void;
+}
 
-  const handleCreate = (values: CreateMachineFormValues) => {
+export default function MachineCreate(props: MachineCreateProps) {
+  const [machine, setMachine] = useState<Machine | null>(null);
+
+  const createMachineCommand = (machine: Machine) => {
+    const command = ["create"];
+
+    if (machine.user && machine.user.trim() !== "") {
+      command.push("-u", machine.user);
+    }
+
+    const distroWithVersion =
+      machine.version && machine.version.trim() !== "" ? `${machine.distro}:${machine.version}` : machine.distro;
+
+    command.push("-a", machine.arch, distroWithVersion, machine.name);
+    return command;
+  };
+
+  const { isLoading } = useExec(ORB_CTL, machine ? createMachineCommand(machine) : [], {
+    execute: machine !== null,
+    timeout: 1000 * 120, // machine creation can take a bit so let's wait at least 2 minutes.
+    onData: () => {
+      showToast({
+        title: "Machine Created",
+        message: "Machine has been successfully created.",
+        style: Toast.Style.Success,
+      });
+      setMachine(null);
+      if (props.refresh) {
+        props.refresh();
+      }
+    },
+    onError: (e) => {
+      showToast({
+        title: "Machine Creation Failed",
+        message: e.message,
+        style: Toast.Style.Failure,
+      });
+      setMachine(null);
+    },
+  });
+
+  const handleCreate = (values: Machine) => {
     setMachine(values);
     showToast({
       title: "Creating Machine",
@@ -69,7 +65,7 @@ export default function Command() {
     });
   };
 
-  const { handleSubmit, itemProps } = useForm<CreateMachineFormValues>({
+  const { handleSubmit, itemProps } = useForm<Machine>({
     onSubmit: handleCreate,
     validation: {
       name: FormValidation.Required,
@@ -93,11 +89,13 @@ export default function Command() {
           <Form.Dropdown.Item key={distro.value} value={distro.value} title={distro.title} />
         ))}
       </Form.Dropdown>
+      <Form.TextField title="Version" placeholder="Leave blank for default distro version" {...itemProps.version} />
       <Form.Dropdown title="Arch" {...itemProps.arch}>
         {ARCHITECTURES.map((arch) => (
           <Form.Dropdown.Item key={arch.value} value={arch.value} title={arch.title} />
         ))}
       </Form.Dropdown>
+      <Form.TextField title="Username" placeholder="Leave blank for default username" {...itemProps.user} />
     </Form>
   );
 }

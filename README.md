@@ -4,10 +4,9 @@ Manage OrbStack machines and containers directly from Raycast
 
 ## Features
 
-- **Quick Machine Management** - Start, stop, and monitor OrbStack Linux machines instantly
-- **Easy Machine Creation** - Create new Linux machines with supported distributions
-- **Architecture Support** - Choose between arm64 and amd64 architectures
-- **Real-time Status** - Visual indicators for machine states (running, stopped, paused)
+- **Machine Management** - Start, stop, and monitor OrbStack Linux machines instantly
+- **Machine Creation** - Create new Linux machines with supported distributions
+- **AI Chat Integration** - Ask AI to run commands in your Linux machines
 
 ## Prerequisites
 
@@ -18,81 +17,18 @@ Before using this extension, you must have:
    - Or install via Homebrew: `brew install orbstack`
 2. **OrbStack CLI tools** (`orbctl`) automatically installed with OrbStack
 
-## Installation
+## DANGER ZONE
 
-1. Open Raycast
-2. Run Store command
-3. Search for "OrbStack"
-4. Install the extension
+By default OrbStack machines have [two-way file sharing](https://docs.orbstack.dev/machines/file-sharing) between the host and guest machines. If you use the `@orbstack` tool in
+the AI chat and you ask it to run commands, you may inadvertently expose sensitive information, destroy important data, or compromise your host system.
 
-## Usage
+## FAQs
 
-### Managing Machines
+1. **Why can't I set a user password when creating a machine?**
 
-Use the **"Manage Machines"** command to:
+  `orbctl` (which this extension uses) prompts the user for a password during machine creation. We can't 'answer' the prompt via the raycast API. Use `orbctl` or `orb` cli if you need to set a username with password when creating a machine. Example: `orbctl create -u <user> -p <distro> <machine-name>`.
 
-- View all your OrbStack Linux machines
-- See machine details (distribution, version, architecture, status)
-- Start stopped machines with one click
-- Stop running machines instantly
-- Refresh the machine list with `⌘+R`
+2. **Why do I get a `-bash: warning: setlocale: LC_ALL: cannot change locale ...` when I open a machine via the extension?**
 
-Each machine displays:
-
-- **Name** - Custom machine name
-- **Distribution Info** - OS version and architecture
-- **Status** - Current state with color-coded icons
-
-### Creating New Machines
-
-Use the **"Create Machine"** command to:
-
-1. Enter a machine name
-2. Choose Linux distribution
-3. Select architecture (arm64 or amd64)
-4. Create with one click
-
-Supported distributions include:
-
-- Ubuntu, Debian, Fedora, CentOS
-- Arch Linux, Alpine Linux, openSUSE
-- Kali Linux, NixOS, Gentoo
-- And many more...
-
-## Commands
-
-### `Manage Machines`
-
-Lists all OrbStack machines with their current status and provides quick actions:
-
-- **Start Machine** - Launch a stopped machine
-- **Stop Machine** - Shutdown a running machine
-- **Refresh** - Update the machine list
-
-### `Create Machine`
-
-Create a new Linux virtual machine:
-
-- **Machine Name** - Custom identifier for your machine
-- **Distribution** - Choose from supported Linux distributions
-- **Architecture** - arm64 (Apple Silicon) or amd64 (Intel)
-
-## Troubleshooting
-
-### "orbctl command not found"
-
-Ensure OrbStack is properly installed and the CLI tools are available:
-
-```bash
-orbctl --version
-```
-
-### Machines not appearing
-
-1. Check OrbStack is running
-2. Verify machines exist: `orbctl list`
-3. Restart OrbStack if needed
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+  By default, macOS Terminal sets locale environment variables (like `LANG`, `LC_ALL`, and others) and, via SSH, forwards these to the remote host.
+  I don't know of a workaround for this. If you know of a fix, please let me know.

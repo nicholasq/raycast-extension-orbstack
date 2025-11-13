@@ -132,3 +132,30 @@ export function useMachineInfo(machineName: string | null) {
 
   return { machineInfo, isLoadingMachineInfo };
 }
+
+export function useMachineToggleAll(onComplete?: () => void) {
+  const [toggleCommand, setToggleCommand] = useState<string[] | null>(null);
+
+  const { isLoading: isTogglingAll } = useExec(ORB_CTL, toggleCommand || [], {
+    execute: toggleCommand !== null,
+    onData: () => {
+      setToggleCommand(null);
+      onComplete?.();
+    },
+    onError: (e) => {
+      setToggleCommand(null);
+      onComplete?.();
+      handleCommandError(e, "Toggle All Machines");
+    },
+  });
+
+  const startAll = () => {
+    setToggleCommand(["start", "--all"]);
+  };
+
+  const stopAll = () => {
+    setToggleCommand(["stop", "--all"]);
+  };
+
+  return { isTogglingAll, startAll, stopAll };
+}

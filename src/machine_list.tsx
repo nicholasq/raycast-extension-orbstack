@@ -3,13 +3,14 @@ import { useState } from "react";
 import { getStatusIcon } from "./utils";
 import CommandExecute from "./command_execute";
 import MachineCreate from "./machine_create";
-import { useMachineList, useMachineStateTransition, useMachineInfo } from "./hooks";
+import { useMachineList, useMachineStateTransition, useMachineInfo, useMachineToggleAll } from "./hooks";
 
 export default function MachineList() {
   const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
   const { machines, isLoadingMachineList, revalidateMachineList } = useMachineList();
   const { startTransition, isTransitioningState } = useMachineStateTransition(revalidateMachineList);
   const { machineInfo, isLoadingMachineInfo } = useMachineInfo(selectedMachine);
+  const { startAll, stopAll, isTogglingAll } = useMachineToggleAll(revalidateMachineList);
 
   if (isLoadingMachineList) {
     return <List isLoading={true}></List>;
@@ -17,7 +18,7 @@ export default function MachineList() {
 
   return (
     <List
-      isLoading={isTransitioningState || isLoadingMachineInfo}
+      isLoading={isTransitioningState || isLoadingMachineInfo || isTogglingAll}
       isShowingDetail={machineInfo !== null}
       onSelectionChange={(name) => {
         setSelectedMachine(name);
@@ -140,6 +141,16 @@ export default function MachineList() {
                   />
                 }
                 shortcut={{ modifiers: ["cmd", "shift"], key: "d" }}
+              />
+              <Action
+                title="Start All Machines"
+                onAction={startAll}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "s" }}
+              />
+              <Action
+                title="Stop All Machines"
+                onAction={stopAll}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "x" }}
               />
             </ActionPanel>
           }

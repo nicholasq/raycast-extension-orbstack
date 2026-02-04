@@ -6,6 +6,8 @@ import { BaseArgs, validateBaseArgs } from "./types";
  * DO NOT call this tool unless the user EXPLICTLY asks you to open or ssh into machine.
  * If a user asks you to run commands or perform actions, then use the machine_execute_command tool instead.
  *
+ * This tool requires a machine_name property to the args object.
+ *
  * @param args machine to ssh into
  * @returns output of shell command
  */

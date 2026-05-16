@@ -18,7 +18,7 @@ export function getStatusIcon(status: string) {
 
 export const execAsync = promisify(exec);
 
-function isVersionAtLeast(currentVersion: string, minimumVersion: string): boolean {
+export function isVersionAtLeast(currentVersion: string, minimumVersion: string): boolean {
   const [currMajor = 0, currMinor = 0, currPatch = 0] = currentVersion.split(".").map(Number);
   const [minMajor = 0, minMinor = 0, minPatch = 0] = minimumVersion.split(".").map(Number);
 

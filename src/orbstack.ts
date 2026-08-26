@@ -76,3 +76,9 @@ export function parseOrbctlVersion(output: string): string | null {
  * https://docs.orbstack.dev/release-notes#v2-1-0-apr-19
  */
 export const ISOLATED_MACHINES_VERSION = "2.1.0";
+
+/**
+ * Minimum version of orbctl required to support per-machine resource limits.
+ * https://docs.orbstack.dev/release-notes#v2-2-0-june-4
+ */
+export const MACHINE_RESOURCE_LIMITS_VERSION = "2.2.0";

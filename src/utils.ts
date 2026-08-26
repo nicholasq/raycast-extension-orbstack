@@ -1,7 +1,7 @@
 import { exec } from "child_process";
 import { promisify } from "util";
 import { Icon } from "@raycast/api";
-import { ISOLATED_MACHINES_VERSION, parseOrbctlVersion } from "./orbstack";
+import { ISOLATED_MACHINES_VERSION, MACHINE_RESOURCE_LIMITS_VERSION, parseOrbctlVersion } from "./orbstack";
 
 export function getStatusIcon(status: string) {
   switch (status.toLowerCase()) {
@@ -31,7 +31,15 @@ export function isVersionAtLeast(currentVersion: string, minimumVersion: string)
   return currPatch >= minPatch;
 }
 
-export function supportsIsolatedMachines(versionOutput: string): boolean {
+export function supportsOrbctlVersion(versionOutput: string, minimumVersion: string): boolean {
   const version = parseOrbctlVersion(versionOutput);
-  return version ? isVersionAtLeast(version, ISOLATED_MACHINES_VERSION) : false;
+  return version ? isVersionAtLeast(version, minimumVersion) : false;
+}
+
+export function supportsIsolatedMachines(versionOutput: string): boolean {
+  return supportsOrbctlVersion(versionOutput, ISOLATED_MACHINES_VERSION);
+}
+
+export function supportsMachineResourceLimits(versionOutput: string): boolean {
+  return supportsOrbctlVersion(versionOutput, MACHINE_RESOURCE_LIMITS_VERSION);
 }

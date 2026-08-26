@@ -2,7 +2,7 @@ import { ActionPanel, Action, Form, showToast, Toast } from "@raycast/api";
 import { useForm, FormValidation, useExec } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import { ORB_CTL, DISTROS, ARCHITECTURES } from "./orbstack";
-import { supportsIsolatedMachines } from "./utils";
+import { supportsIsolatedMachines, supportsMachineResourceLimits } from "./utils";
 
 interface Machine {
   distro: string;
@@ -11,6 +11,28 @@ interface Machine {
   user?: string;
   version?: string;
   isolated?: boolean;
+  cpus?: string;
+  memory?: string;
+  disk?: string;
+}
+
+function validatePositiveInteger(value?: string): string | undefined {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue) return undefined;
+
+  return /^[1-9]\d*$/.test(trimmedValue) ? undefined : "CPU limit must be a positive whole number";
+}
+
+function validatePositiveGiB(value: string | undefined, label: string): string | undefined {
+  const trimmedValue = value?.trim();
+  if (!trimmedValue) return undefined;
+
+  const numericValue = Number(trimmedValue);
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(trimmedValue) || !Number.isFinite(numericValue) || numericValue <= 0) {
+    return `${label} must be a positive number in GiB`;
+  }
+
+  return undefined;
 }
 
 interface MachineCreateProps {
@@ -27,6 +49,11 @@ export default function MachineCreate(props: MachineCreateProps) {
     return supportsIsolatedMachines(versionOutput);
   }, [versionOutput]);
 
+  const canCreateMachineWithResourceLimits = useMemo(() => {
+    if (!versionOutput) return false;
+    return supportsMachineResourceLimits(versionOutput);
+  }, [versionOutput]);
+
   const createMachineCommand = (machine: Machine) => {
     const command = ["create"];
 
@@ -36,6 +63,18 @@ export default function MachineCreate(props: MachineCreateProps) {
 
     if (machine.isolated) {
       command.push("--isolated");
+    }
+
+    if (machine.cpus && machine.cpus.trim() !== "") {
+      command.push("--cpus", machine.cpus.trim());
+    }
+
+    if (machine.memory && machine.memory.trim() !== "") {
+      command.push("--memory", `${machine.memory.trim()}G`);
+    }
+
+    if (machine.disk && machine.disk.trim() !== "") {
+      command.push("--disk", `${machine.disk.trim()}G`);
     }
 
     const distroWithVersion =
@@ -84,6 +123,9 @@ export default function MachineCreate(props: MachineCreateProps) {
       name: FormValidation.Required,
       distro: FormValidation.Required,
       arch: FormValidation.Required,
+      cpus: validatePositiveInteger,
+      memory: (value) => validatePositiveGiB(value, "Memory limit"),
+      disk: (value) => validatePositiveGiB(value, "Disk limit"),
     },
   });
 
@@ -109,6 +151,25 @@ export default function MachineCreate(props: MachineCreateProps) {
         ))}
       </Form.Dropdown>
       <Form.TextField title="Username" placeholder="Leave blank for default username" {...itemProps.user} />
+      {canCreateMachineWithResourceLimits && (
+        <>
+          <Form.TextField
+            title="CPU Limit (Cores)"
+            placeholder="Leave blank to use the global limit"
+            {...itemProps.cpus}
+          />
+          <Form.TextField
+            title="Memory Limit (GiB)"
+            placeholder="Leave blank to use the global limit"
+            {...itemProps.memory}
+          />
+          <Form.TextField
+            title="Disk Limit (GiB)"
+            placeholder="Maximum capacity; leave blank to use the global limit"
+            {...itemProps.disk}
+          />
+        </>
+      )}
       {canCreateIsolatedMachine && (
         <Form.Checkbox title="Isolated" label="Create as isolated machine" {...itemProps.isolated} />
       )}

@@ -113,6 +113,27 @@ export interface CreateArgs {
    * DO NOT set this unless the user EXPLICITLY requested an isolated machine.
    */
   isolated?: boolean;
+
+  /**
+   * OPTIONAL
+   * Maximum number of CPU cores available to the machine.
+   * Must be a positive whole number. Leave unset to use OrbStack's global limit.
+   */
+  cpus?: number;
+
+  /**
+   * OPTIONAL
+   * Maximum memory available to the machine, in GiB.
+   * Must be a positive number. Leave unset to use OrbStack's global limit.
+   */
+  memory_gib?: number;
+
+  /**
+   * OPTIONAL
+   * Maximum disk capacity for the machine, in GiB.
+   * Must be a positive number. Leave unset to use OrbStack's default capacity.
+   */
+  disk_gib?: number;
 }
 
 export function validateCreateArgs(args: CreateArgs) {
@@ -134,6 +155,18 @@ export function validateCreateArgs(args: CreateArgs) {
     !ARCHITECTURES.map((e) => e.value).includes(args.architecture as Architecture)
   ) {
     throw new Error("architecture must be either arm64 or x86_64");
+  }
+
+  if (args.cpus !== undefined && (!Number.isInteger(args.cpus) || args.cpus <= 0)) {
+    throw new Error("cpus must be a positive whole number");
+  }
+
+  if (args.memory_gib !== undefined && (!Number.isFinite(args.memory_gib) || args.memory_gib <= 0)) {
+    throw new Error("memory_gib must be a positive number in GiB");
+  }
+
+  if (args.disk_gib !== undefined && (!Number.isFinite(args.disk_gib) || args.disk_gib <= 0)) {
+    throw new Error("disk_gib must be a positive number in GiB");
   }
 }
 

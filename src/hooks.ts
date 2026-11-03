@@ -121,9 +121,10 @@ export function useMachineInfo(machineName: string | null) {
   }, [hasMachine, revalidate]);
 
   const machineInfo: OrbMachineInfo | null = useMemo(() => {
-    if (machineData) {
+    if (machineData && machineName) {
       try {
-        return JSON.parse(machineData) as OrbMachineInfo;
+        const parsedMachineInfo = JSON.parse(machineData) as OrbMachineInfo;
+        return parsedMachineInfo?.record?.name === machineName ? parsedMachineInfo : null;
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         showToast({
@@ -134,7 +135,7 @@ export function useMachineInfo(machineName: string | null) {
       }
     }
     return null;
-  }, [machineData]);
+  }, [machineData, machineName]);
 
   return { machineInfo, isLoadingMachineInfo, revalidateMachineInfo };
 }

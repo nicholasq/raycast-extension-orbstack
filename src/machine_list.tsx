@@ -42,7 +42,7 @@ export default function MachineList() {
   return (
     <List
       isLoading={isTransitioningState || isLoadingMachineInfo || isTogglingAll}
-      isShowingDetail={machineInfo !== null}
+      isShowingDetail={selectedMachine !== null}
       onSelectionChange={(name) => {
         setSelectedMachine(name);
       }}
@@ -57,7 +57,7 @@ export default function MachineList() {
             <List.Item.Detail
               metadata={
                 <List.Item.Detail.Metadata>
-                  {machineInfo && selectedMachine === machine.name ? (
+                  {machineInfo && machineInfo.record.name === machine.name && selectedMachine === machine.name ? (
                     <>
                       <List.Item.Detail.Metadata.Label
                         title="State"
@@ -123,6 +123,11 @@ export default function MachineList() {
                         icon={Icon.Star}
                       />
                     </>
+                  ) : selectedMachine === machine.name ? (
+                    <List.Item.Detail.Metadata.Label
+                      title={isLoadingMachineInfo ? "Loading machine details" : "Machine details unavailable"}
+                      text={isLoadingMachineInfo ? "Please wait while details are fetched" : "Refresh to try again"}
+                    />
                   ) : (
                     <List.Item.Detail.Metadata.Label title="Select a machine" text="Choose a machine to view details" />
                   )}

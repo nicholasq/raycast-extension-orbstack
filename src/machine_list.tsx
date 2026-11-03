@@ -1,6 +1,8 @@
 import { List, ActionPanel, Action, Icon } from "@raycast/api";
-import { useState } from "react";
-import { getStatusIcon } from "./utils";
+import { useExec } from "@raycast/utils";
+import { useMemo, useState } from "react";
+import { ORB_CTL } from "./orbstack";
+import { getStatusIcon, supportsMachineResourceLimits } from "./utils";
 import CommandExecute from "./command_execute";
 import MachineCreate from "./machine_create";
 import MachineClone from "./machine_clone";
@@ -19,9 +21,14 @@ function formatGiBLimit(limit: number | null | undefined, unitsPerGiB: number): 
 
 export default function MachineList() {
   const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
+  const { data: versionOutput, error: versionError, isLoading: isLoadingVersion } = useExec(ORB_CTL, ["version"]);
+  const canShowMachineResourceLimits = useMemo(() => {
+    if (isLoadingVersion || versionError || !versionOutput) return false;
+    return supportsMachineResourceLimits(versionOutput);
+  }, [isLoadingVersion, versionError, versionOutput]);
   const { machines, isLoadingMachineList, revalidateMachineList } = useMachineList();
   const { startTransition, isTransitioningState } = useMachineStateTransition(revalidateMachineList);
-  const { machineInfo, isLoadingMachineInfo } = useMachineInfo(selectedMachine);
+  const { machineInfo, isLoadingMachineInfo, revalidateMachineInfo } = useMachineInfo(selectedMachine);
   const { startAll, stopAll, isTogglingAll } = useMachineToggleAll(revalidateMachineList);
 
   if (isLoadingMachineList) {
@@ -78,21 +85,25 @@ export default function MachineList() {
                         text={machineInfo.record.config.isolated ? "Yes" : "No"}
                         icon={Icon.Lock}
                       />
-                      <List.Item.Detail.Metadata.Label
-                        title="CPU Limit"
-                        text={formatCpuLimit(machineInfo.record.config.cpu_limit)}
-                        icon={Icon.ComputerChip}
-                      />
-                      <List.Item.Detail.Metadata.Label
-                        title="Memory Limit"
-                        text={formatGiBLimit(machineInfo.record.config.memory_limit_mib, 1024)}
-                        icon={Icon.MemoryChip}
-                      />
-                      <List.Item.Detail.Metadata.Label
-                        title="Disk Limit (Max)"
-                        text={formatGiBLimit(machineInfo.record.config.disk_limit_bytes, 1024 ** 3)}
-                        icon={Icon.HardDrive}
-                      />
+                      {canShowMachineResourceLimits && (
+                        <>
+                          <List.Item.Detail.Metadata.Label
+                            title="CPU Limit"
+                            text={formatCpuLimit(machineInfo.record.config.cpu_limit)}
+                            icon={Icon.ComputerChip}
+                          />
+                          <List.Item.Detail.Metadata.Label
+                            title="Memory Limit"
+                            text={formatGiBLimit(machineInfo.record.config.memory_limit_mib, 1024)}
+                            icon={Icon.MemoryChip}
+                          />
+                          <List.Item.Detail.Metadata.Label
+                            title="Disk Limit (Max)"
+                            text={formatGiBLimit(machineInfo.record.config.disk_limit_bytes, 1024 ** 3)}
+                            icon={Icon.HardDrive}
+                          />
+                        </>
+                      )}
                       <List.Item.Detail.Metadata.Label
                         title="Disk Size"
                         text={`${(machineInfo.disk_size / 1000 / 1000).toFixed(1)} MB`}
@@ -138,6 +149,9 @@ export default function MachineList() {
                 shortcut={{ modifiers: ["cmd"], key: "r" }}
                 onAction={() => {
                   revalidateMachineList();
+                  if (selectedMachine) {
+                    revalidateMachineInfo();
+                  }
                 }}
               />
               <Action.Push

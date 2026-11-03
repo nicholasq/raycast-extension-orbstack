@@ -1,6 +1,6 @@
 import { showToast, Toast } from "@raycast/api";
 import { useExec } from "@raycast/utils";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { OrbMachine, OrbMachineInfo, ORB_CTL } from "./orbstack";
 
 type MachineState = "running" | "stopped" | "stopping";
@@ -104,14 +104,21 @@ export function useMachineStateTransition(onComplete?: () => void) {
 }
 
 export function useMachineInfo(machineName: string | null) {
-  const { isLoading: isLoadingMachineInfo, data: machineData } = useExec(
-    ORB_CTL,
-    ["info", machineName ?? "", "--format", "json"],
-    {
-      execute: machineName !== null,
-      onError: (e) => handleCommandError(e, "Machine Info"),
-    },
-  );
+  const hasMachine = Boolean(machineName);
+  const {
+    isLoading: isLoadingMachineInfo,
+    data: machineData,
+    revalidate: revalidate,
+  } = useExec(ORB_CTL, machineName ? ["info", machineName, "--format", "json"] : [], {
+    execute: hasMachine,
+    onError: (e) => handleCommandError(e, "Machine Info"),
+  });
+
+  const revalidateMachineInfo = useCallback(() => {
+    if (hasMachine) {
+      revalidate();
+    }
+  }, [hasMachine, revalidate]);
 
   const machineInfo: OrbMachineInfo | null = useMemo(() => {
     if (machineData) {
@@ -129,7 +136,7 @@ export function useMachineInfo(machineName: string | null) {
     return null;
   }, [machineData]);
 
-  return { machineInfo, isLoadingMachineInfo };
+  return { machineInfo, isLoadingMachineInfo, revalidateMachineInfo };
 }
 
 export function useMachineToggleAll(onComplete?: () => void) {

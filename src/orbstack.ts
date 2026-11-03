@@ -10,6 +10,9 @@ export interface OrbMachine {
   config: {
     isolated: boolean;
     default_username: string;
+    cpu_limit?: number | null;
+    memory_limit_mib?: number | null;
+    disk_limit_bytes?: number | null;
   };
   builtin: boolean;
   state: string;

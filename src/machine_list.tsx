@@ -7,6 +7,16 @@ import MachineClone from "./machine_clone";
 import MachineRename from "./machine_rename";
 import { useMachineList, useMachineStateTransition, useMachineInfo, useMachineToggleAll } from "./hooks";
 
+function formatCpuLimit(limit: number | null | undefined): string {
+  if (limit == null) return "Uses global limit";
+  return `${limit} ${limit === 1 ? "core" : "cores"}`;
+}
+
+function formatGiBLimit(limit: number | null | undefined, unitsPerGiB: number): string {
+  if (limit == null) return "Uses global limit";
+  return `${Number((limit / unitsPerGiB).toFixed(2))} GiB`;
+}
+
 export default function MachineList() {
   const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
   const { machines, isLoadingMachineList, revalidateMachineList } = useMachineList();
@@ -67,6 +77,21 @@ export default function MachineList() {
                         title="Isolated"
                         text={machineInfo.record.config.isolated ? "Yes" : "No"}
                         icon={Icon.Lock}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="CPU Limit"
+                        text={formatCpuLimit(machineInfo.record.config.cpu_limit)}
+                        icon={Icon.ComputerChip}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Memory Limit"
+                        text={formatGiBLimit(machineInfo.record.config.memory_limit_mib, 1024)}
+                        icon={Icon.MemoryChip}
+                      />
+                      <List.Item.Detail.Metadata.Label
+                        title="Disk Limit (Max)"
+                        text={formatGiBLimit(machineInfo.record.config.disk_limit_bytes, 1024 ** 3)}
+                        icon={Icon.HardDrive}
                       />
                       <List.Item.Detail.Metadata.Label
                         title="Disk Size"

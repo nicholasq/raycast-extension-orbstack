@@ -7,6 +7,7 @@ import CommandExecute from "./command_execute";
 import MachineCreate from "./machine_create";
 import MachineClone from "./machine_clone";
 import MachineRename from "./machine_rename";
+import MachineResourceLimitsEdit from "./machine_resource_limits_edit";
 import { useMachineList, useMachineStateTransition, useMachineInfo, useMachineToggleAll } from "./hooks";
 
 function formatCpuLimit(limit: number | null | undefined): string {
@@ -192,6 +193,20 @@ export default function MachineList() {
                 target={<MachineClone oldName={machine.name} refresh={revalidateMachineList} />}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
               />
+              {canShowMachineResourceLimits &&
+                selectedMachine === machine.name &&
+                machineInfo?.record.name === machine.name && (
+                  <Action.Push
+                    title="Edit Resource Limits"
+                    target={
+                      <MachineResourceLimitsEdit
+                        machineName={machine.name}
+                        currentLimits={machineInfo.record.config}
+                        refresh={revalidateMachineInfo}
+                      />
+                    }
+                  />
+                )}
               <Action.Push
                 title="Rename"
                 target={<MachineRename oldName={machine.name} refresh={revalidateMachineList} />}

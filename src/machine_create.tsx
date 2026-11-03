@@ -173,7 +173,7 @@ export default function MachineCreate(props: MachineCreateProps) {
           />
           <Form.TextField
             title="Disk Limit (GiB)"
-            placeholder="Maximum capacity; leave blank to use the global limit"
+            placeholder="Maximum capacity; leave blank to omit a per-machine disk limit"
             {...itemProps.disk}
           />
         </>

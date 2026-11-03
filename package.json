@@ -23,7 +23,33 @@
       "name": "machine_create",
       "title": "Machine Create",
       "description": "Create a new machine",
-      "mode": "view"
+      "mode": "view",
+      "preferences": [
+        {
+          "name": "defaultCpuLimit",
+          "title": "Default CPU Limit (Cores)",
+          "description": "Pre-fill the CPU core limit for new machines. Leave blank to use OrbStack's global limit.",
+          "type": "textfield",
+          "required": false,
+          "default": ""
+        },
+        {
+          "name": "defaultMemoryLimit",
+          "title": "Default Memory Limit (GiB)",
+          "description": "Pre-fill the memory limit for new machines. Leave blank to use OrbStack's global limit.",
+          "type": "textfield",
+          "required": false,
+          "default": ""
+        },
+        {
+          "name": "defaultDiskLimit",
+          "title": "Default Disk Limit (GiB)",
+          "description": "Pre-fill the maximum disk capacity for new machines. Leave blank to use OrbStack's global limit.",
+          "type": "textfield",
+          "required": false,
+          "default": ""
+        }
+      ]
     }
   ],
   "tools": [

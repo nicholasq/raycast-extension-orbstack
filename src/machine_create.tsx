@@ -1,4 +1,4 @@
-import { ActionPanel, Action, Form, showToast, Toast } from "@raycast/api";
+import { ActionPanel, Action, Form, getPreferenceValues, showToast, Toast } from "@raycast/api";
 import { useForm, FormValidation, useExec } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import { ORB_CTL, DISTROS, ARCHITECTURES } from "./orbstack";
@@ -41,6 +41,7 @@ interface MachineCreateProps {
 
 export default function MachineCreate(props: MachineCreateProps) {
   const [machine, setMachine] = useState<Machine | null>(null);
+  const preferences = getPreferenceValues<Preferences.MachineCreate>();
 
   const { data: versionOutput } = useExec(ORB_CTL, ["version"]);
 
@@ -65,16 +66,18 @@ export default function MachineCreate(props: MachineCreateProps) {
       command.push("--isolated");
     }
 
-    if (machine.cpus && machine.cpus.trim() !== "") {
-      command.push("--cpus", machine.cpus.trim());
-    }
+    if (canCreateMachineWithResourceLimits) {
+      if (machine.cpus && machine.cpus.trim() !== "") {
+        command.push("--cpus", machine.cpus.trim());
+      }
 
-    if (machine.memory && machine.memory.trim() !== "") {
-      command.push("--memory", `${machine.memory.trim()}G`);
-    }
+      if (machine.memory && machine.memory.trim() !== "") {
+        command.push("--memory", `${machine.memory.trim()}G`);
+      }
 
-    if (machine.disk && machine.disk.trim() !== "") {
-      command.push("--disk", `${machine.disk.trim()}G`);
+      if (machine.disk && machine.disk.trim() !== "") {
+        command.push("--disk", `${machine.disk.trim()}G`);
+      }
     }
 
     const distroWithVersion =
@@ -119,13 +122,18 @@ export default function MachineCreate(props: MachineCreateProps) {
 
   const { handleSubmit, itemProps } = useForm<Machine>({
     onSubmit: handleCreate,
+    initialValues: {
+      cpus: preferences.defaultCpuLimit,
+      memory: preferences.defaultMemoryLimit,
+      disk: preferences.defaultDiskLimit,
+    },
     validation: {
       name: FormValidation.Required,
       distro: FormValidation.Required,
       arch: FormValidation.Required,
-      cpus: validatePositiveInteger,
-      memory: (value) => validatePositiveGiB(value, "Memory limit"),
-      disk: (value) => validatePositiveGiB(value, "Disk limit"),
+      cpus: (value) => (canCreateMachineWithResourceLimits ? validatePositiveInteger(value) : undefined),
+      memory: (value) => (canCreateMachineWithResourceLimits ? validatePositiveGiB(value, "Memory limit") : undefined),
+      disk: (value) => (canCreateMachineWithResourceLimits ? validatePositiveGiB(value, "Disk limit") : undefined),
     },
   });
 

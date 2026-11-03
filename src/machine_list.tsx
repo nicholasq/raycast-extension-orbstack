@@ -14,8 +14,12 @@ function formatCpuLimit(limit: number | null | undefined): string {
   return `${limit} ${limit === 1 ? "core" : "cores"}`;
 }
 
-function formatGiBLimit(limit: number | null | undefined, unitsPerGiB: number): string {
-  if (limit == null) return "Uses global limit";
+function formatGiBLimit(
+  limit: number | null | undefined,
+  unitsPerGiB: number,
+  unsetLabel = "Uses global limit",
+): string {
+  if (limit == null) return unsetLabel;
   return `${Number((limit / unitsPerGiB).toFixed(2))} GiB`;
 }
 
@@ -99,7 +103,11 @@ export default function MachineList() {
                           />
                           <List.Item.Detail.Metadata.Label
                             title="Disk Limit (Max)"
-                            text={formatGiBLimit(machineInfo.record.config.disk_limit_bytes, 1024 ** 3)}
+                            text={formatGiBLimit(
+                              machineInfo.record.config.disk_limit_bytes,
+                              1024 ** 3,
+                              "No per-machine limit",
+                            )}
                             icon={Icon.HardDrive}
                           />
                         </>

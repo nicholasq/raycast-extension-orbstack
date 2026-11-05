@@ -2,6 +2,7 @@ import { ActionPanel, Action, Form, showToast, Toast } from "@raycast/api";
 import { useExec, useForm } from "@raycast/utils";
 import { useState } from "react";
 import { OrbMachine, ORB_CTL } from "./orbstack";
+import { useMachineInfo } from "./hooks";
 
 interface MachineResourceLimitsEditProps {
   machineName: string;
@@ -62,9 +63,11 @@ function formatGiBLimit(limit: number | null | undefined, unitsPerGiB: number, u
 
 export default function MachineResourceLimitsEdit({
   machineName,
-  currentLimits,
+  currentLimits: initialCurrentLimits,
   refresh,
 }: MachineResourceLimitsEditProps) {
+  const { machineInfo, revalidateMachineInfo } = useMachineInfo(machineName);
+  const currentLimits = machineInfo?.record.name === machineName ? machineInfo.record.config : initialCurrentLimits;
   const [updateBatch, setUpdateBatch] = useState<ResourceLimitUpdateBatch | null>(null);
   const activeUpdate = updateBatch?.updates[updateBatch.index];
 
@@ -80,6 +83,7 @@ export default function MachineResourceLimitsEdit({
       }
 
       setUpdateBatch(null);
+      revalidateMachineInfo();
       refresh?.();
       showToast({
         title: "Resource Limits Updated",
@@ -96,6 +100,7 @@ export default function MachineResourceLimitsEdit({
         : "No limits were updated. ";
 
       setUpdateBatch(null);
+      revalidateMachineInfo();
       refresh?.();
       showToast({
         title: completedUpdates.length ? "Some Limits Updated" : "Limit Update Failed",
@@ -170,18 +175,23 @@ export default function MachineResourceLimitsEdit({
       }
     >
       <Form.Description
-        title="Current Limits"
-        text={`CPU: ${formatCpuLimit(currentLimits.cpu_limit)}; memory: ${formatGiBLimit(currentLimits.memory_limit_mib, 1024, "Uses global limit")}; disk maximum: ${formatGiBLimit(currentLimits.disk_limit_bytes, 1024 ** 3, "No per-machine limit")}.`}
-      />
-      <Form.Description
         title="How Editing Works"
         text="Enter only the limits to change. Leave any field blank to keep its current value. Restoring OrbStack's global default is not available in this UI."
       />
+      <Form.Description title="Current CPU Limit" text={formatCpuLimit(currentLimits.cpu_limit)} />
       <Form.TextField title="CPU Limit (Cores)" placeholder="Leave blank to keep current value" {...itemProps.cpu} />
+      <Form.Description
+        title="Current Memory Limit"
+        text={formatGiBLimit(currentLimits.memory_limit_mib, 1024, "Uses global limit")}
+      />
       <Form.TextField
         title="Memory Limit (GiB)"
         placeholder="Leave blank to keep current value"
         {...itemProps.memory}
+      />
+      <Form.Description
+        title="Current Disk Limit"
+        text={formatGiBLimit(currentLimits.disk_limit_bytes, 1024 ** 3, "No per-machine limit")}
       />
       <Form.TextField
         title="Disk Limit (Maximum GiB)"

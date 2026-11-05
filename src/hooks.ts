@@ -166,3 +166,38 @@ export function useMachineToggleAll(onComplete?: () => void) {
 
   return { isTogglingAll, startAll, stopAll };
 }
+
+const MACHINE_RESTART_TIMEOUT_MS = 5 * 60 * 1000;
+
+interface MachineRestartRequest {
+  args: string[];
+  context: string;
+}
+
+export function useMachineRestartActions(onComplete?: () => void) {
+  const [restartRequest, setRestartRequest] = useState<MachineRestartRequest | null>(null);
+
+  const { isLoading: isRestarting } = useExec(ORB_CTL, restartRequest?.args ?? [], {
+    execute: restartRequest !== null,
+    timeout: MACHINE_RESTART_TIMEOUT_MS,
+    onData: () => {
+      setRestartRequest(null);
+      onComplete?.();
+    },
+    onError: (e) => {
+      setRestartRequest(null);
+      onComplete?.();
+      handleCommandError(e, restartRequest?.context ?? "Machine Restart");
+    },
+  });
+
+  const restartMachine = (machine: OrbMachine) => {
+    setRestartRequest({ args: ["restart", machine.id], context: "Restart Machine" });
+  };
+
+  const restartAll = () => {
+    setRestartRequest({ args: ["restart", "--all"], context: "Restart All Machines" });
+  };
+
+  return { isRestarting, restartMachine, restartAll };
+}

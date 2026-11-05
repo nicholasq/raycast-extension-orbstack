@@ -1,4 +1,4 @@
-import { List, ActionPanel, Action, Icon } from "@raycast/api";
+import { List, ActionPanel, Action, Icon, confirmAlert } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import { ORB_CTL } from "./orbstack";
@@ -8,7 +8,13 @@ import MachineCreate from "./machine_create";
 import MachineClone from "./machine_clone";
 import MachineRename from "./machine_rename";
 import MachineResourceLimitsEdit from "./machine_resource_limits_edit";
-import { useMachineList, useMachineStateTransition, useMachineInfo, useMachineToggleAll } from "./hooks";
+import {
+  useMachineList,
+  useMachineStateTransition,
+  useMachineInfo,
+  useMachineToggleAll,
+  useMachineRestartActions,
+} from "./hooks";
 
 function formatCpuLimit(limit: number | null | undefined): string {
   if (limit == null) return "Uses global limit";
@@ -35,6 +41,12 @@ export default function MachineList() {
   const { startTransition, isTransitioningState } = useMachineStateTransition(revalidateMachineList);
   const { machineInfo, isLoadingMachineInfo, revalidateMachineInfo } = useMachineInfo(selectedMachine);
   const { startAll, stopAll, isTogglingAll } = useMachineToggleAll(revalidateMachineList);
+  const { restartMachine, restartAll, isRestarting } = useMachineRestartActions(() => {
+    revalidateMachineList();
+    if (selectedMachine) {
+      revalidateMachineInfo();
+    }
+  });
 
   if (isLoadingMachineList) {
     return <List isLoading={true}></List>;
@@ -42,7 +54,7 @@ export default function MachineList() {
 
   return (
     <List
-      isLoading={isTransitioningState || isLoadingMachineInfo || isTogglingAll}
+      isLoading={isTransitioningState || isLoadingMachineInfo || isTogglingAll || isRestarting}
       isShowingDetail={selectedMachine !== null}
       onSelectionChange={(name) => {
         setSelectedMachine(name);
@@ -153,6 +165,12 @@ export default function MachineList() {
                   }}
                 />
               )}
+              <Action
+                title="Restart Machine"
+                onAction={() => {
+                  restartMachine(machine);
+                }}
+              />
               <Action.Open
                 title="SSH"
                 target={`ssh://${machine.config.default_username}@${machine.name}@orb`}
@@ -235,6 +253,19 @@ export default function MachineList() {
                 title="Stop All Machines"
                 onAction={stopAll}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "x" }}
+              />
+              <Action
+                title="Restart All Machines"
+                onAction={async () => {
+                  const confirmed = await confirmAlert({
+                    title: "Restart All Machines?",
+                    message: "Running machines and their workloads may be interrupted.",
+                    primaryAction: { title: "Restart All Machines" },
+                  });
+                  if (confirmed) {
+                    restartAll();
+                  }
+                }}
               />
             </ActionPanel>
           }

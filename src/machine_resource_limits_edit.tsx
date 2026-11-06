@@ -16,15 +16,49 @@ interface MachineResourceLimitValues {
   disk?: string;
 }
 
+type ResourceLimitName = "cpu" | "memory" | "disk";
+
 interface ResourceLimitUpdate {
   key: string;
   label: string;
   value: string;
+  successMessage: string;
+  failureDescription: string;
 }
 
 interface ResourceLimitUpdateBatch {
   updates: ResourceLimitUpdate[];
   index: number;
+}
+
+// Live-tested on OrbStack 2.2.5: setting a resource key to 0 removes its effective per-machine limit.
+function createResetUpdate(machineName: string, resource: ResourceLimitName): ResourceLimitUpdate {
+  switch (resource) {
+    case "cpu":
+      return {
+        key: `machine.${machineName}.cpu`,
+        label: "CPU limit",
+        value: "0",
+        successMessage: "CPU now uses OrbStack's global limit.",
+        failureDescription: "switch the CPU limit to OrbStack's global limit",
+      };
+    case "memory":
+      return {
+        key: `machine.${machineName}.memory_mib`,
+        label: "memory limit",
+        value: "0",
+        successMessage: "Memory now uses OrbStack's global limit.",
+        failureDescription: "switch the memory limit to OrbStack's global limit",
+      };
+    case "disk":
+      return {
+        key: `machine.${machineName}.disk_bytes`,
+        label: "per-machine disk limit",
+        value: "0",
+        successMessage: "The per-machine disk limit was removed.",
+        failureDescription: "remove the per-machine disk limit",
+      };
+  }
 }
 
 function validatePositiveInteger(value?: string): string | undefined {
@@ -51,13 +85,17 @@ function validatePositiveGiB(value: string | undefined, label: string, unitsPerG
     : `${label} is outside the supported range`;
 }
 
+function hasResourceLimit(limit: number | null | undefined): boolean {
+  return limit != null && limit > 0;
+}
+
 function formatCpuLimit(limit: number | null | undefined): string {
-  if (limit == null) return "Uses global limit";
+  if (limit == null || limit <= 0) return "Uses global limit";
   return `${limit} ${limit === 1 ? "core" : "cores"}`;
 }
 
 function formatGiBLimit(limit: number | null | undefined, unitsPerGiB: number, unsetLabel: string): string {
-  if (limit == null) return unsetLabel;
+  if (limit == null || limit <= 0) return unsetLabel;
   return `${Number((limit / unitsPerGiB).toFixed(2))} GiB`;
 }
 
@@ -68,8 +106,24 @@ export default function MachineResourceLimitsEdit({
 }: MachineResourceLimitsEditProps) {
   const { machineInfo, revalidateMachineInfo } = useMachineInfo(machineName);
   const currentLimits = machineInfo?.record.name === machineName ? machineInfo.record.config : initialCurrentLimits;
+  const [useGlobalCpuLimit, setUseGlobalCpuLimit] = useState(() => !hasResourceLimit(currentLimits.cpu_limit));
+  const [useGlobalMemoryLimit, setUseGlobalMemoryLimit] = useState(
+    () => !hasResourceLimit(currentLimits.memory_limit_mib),
+  );
+  const [noPerMachineDiskLimit, setNoPerMachineDiskLimit] = useState(
+    () => !hasResourceLimit(currentLimits.disk_limit_bytes),
+  );
   const [updateBatch, setUpdateBatch] = useState<ResourceLimitUpdateBatch | null>(null);
   const activeUpdate = updateBatch?.updates[updateBatch.index];
+
+  const startUpdateBatch = (updates: ResourceLimitUpdate[]) => {
+    setUpdateBatch({ updates, index: 0 });
+    showToast({
+      title: "Applying Resource Limit Changes",
+      message: `Applying changes to ${updates.map((update) => update.label).join(", ")} for ${machineName}.`,
+      style: Toast.Style.Animated,
+    });
+  };
 
   const { isLoading } = useExec(ORB_CTL, activeUpdate ? ["config", "set", activeUpdate.key, activeUpdate.value] : [], {
     execute: activeUpdate !== undefined,
@@ -87,7 +141,7 @@ export default function MachineResourceLimitsEdit({
       refresh?.();
       showToast({
         title: "Resource Limits Updated",
-        message: `Updated ${updateBatch.updates.map((update) => update.label).join(", ")}.`,
+        message: updateBatch.updates.map((update) => update.successMessage).join(" "),
         style: Toast.Style.Success,
       });
     },
@@ -96,15 +150,14 @@ export default function MachineResourceLimitsEdit({
 
       const completedUpdates = updateBatch.updates.slice(0, updateBatch.index);
       const completedMessage = completedUpdates.length
-        ? `Updated ${completedUpdates.map((update) => update.label).join(", ")}. `
-        : "No limits were updated. ";
-
+        ? `${completedUpdates.map((update) => update.successMessage).join(" ")} `
+        : "No resource limits were changed. ";
       setUpdateBatch(null);
       revalidateMachineInfo();
       refresh?.();
       showToast({
-        title: completedUpdates.length ? "Some Limits Updated" : "Limit Update Failed",
-        message: `${completedMessage}Failed to update ${activeUpdate.label}; later updates were not attempted. ${error.message}`,
+        title: completedUpdates.length ? "Some Changes Applied" : "Resource Update Failed",
+        message: `${completedMessage}Failed to ${activeUpdate.failureDescription}; later changes were not attempted. ${error.message}`,
         style: Toast.Style.Failure,
       });
     },
@@ -116,46 +169,61 @@ export default function MachineResourceLimitsEdit({
     const memory = values.memory?.trim();
     const disk = values.disk?.trim();
 
-    if (cpu) {
+    if (useGlobalCpuLimit && hasResourceLimit(currentLimits.cpu_limit)) {
+      updates.push(createResetUpdate(machineName, "cpu"));
+    } else if (!useGlobalCpuLimit && cpu) {
       updates.push({
         key: `machine.${machineName}.cpu`,
         label: "CPU limit",
         value: cpu,
+        successMessage: "CPU limit updated.",
+        failureDescription: "update the CPU limit",
       });
+    } else if (!cpu) {
+      setUseGlobalCpuLimit(!hasResourceLimit(currentLimits.cpu_limit));
     }
-    if (memory) {
+
+    if (useGlobalMemoryLimit && hasResourceLimit(currentLimits.memory_limit_mib)) {
+      updates.push(createResetUpdate(machineName, "memory"));
+    } else if (!useGlobalMemoryLimit && memory) {
       updates.push({
         key: `machine.${machineName}.memory_mib`,
         label: "memory limit",
         value: String(Math.round(Number(memory) * 1024)),
+        successMessage: "Memory limit updated.",
+        failureDescription: "update the memory limit",
       });
+    } else if (!memory) {
+      setUseGlobalMemoryLimit(!hasResourceLimit(currentLimits.memory_limit_mib));
     }
-    if (disk) {
+
+    if (noPerMachineDiskLimit && hasResourceLimit(currentLimits.disk_limit_bytes)) {
+      updates.push(createResetUpdate(machineName, "disk"));
+    } else if (!noPerMachineDiskLimit && disk) {
       updates.push({
         key: `machine.${machineName}.disk_bytes`,
         label: "disk maximum",
         value: String(Math.round(Number(disk) * 1024 ** 3)),
+        successMessage: "Disk maximum updated.",
+        failureDescription: "update the disk maximum",
       });
+    } else if (!disk) {
+      setNoPerMachineDiskLimit(!hasResourceLimit(currentLimits.disk_limit_bytes));
     }
 
     if (updates.length === 0) {
       showToast({
-        title: "No Limits Updated",
-        message: "Enter at least one value. Blank fields are left unchanged.",
-        style: Toast.Style.Failure,
+        title: "No Changes",
+        message: "The selected settings are already in effect, or fields were left unchanged.",
+        style: Toast.Style.Success,
       });
       return;
     }
 
-    setUpdateBatch({ updates, index: 0 });
-    showToast({
-      title: "Updating Resource Limits",
-      message: `Updating ${updates.map((update) => update.label).join(", ")} for ${machineName}.`,
-      style: Toast.Style.Animated,
-    });
+    startUpdateBatch(updates);
   };
 
-  const { handleSubmit, itemProps } = useForm<MachineResourceLimitValues>({
+  const { handleSubmit, itemProps, setValue } = useForm<MachineResourceLimitValues>({
     onSubmit: handleUpdate,
     validation: {
       cpu: validatePositiveInteger,
@@ -176,28 +244,70 @@ export default function MachineResourceLimitsEdit({
     >
       <Form.Description
         title="How Editing Works"
-        text="Enter only the limits to change. Leave any field blank to keep its current value. Restoring OrbStack's global default is not available in this UI."
+        text="Check an option to use OrbStack's global CPU or memory limit, or remove the per-machine disk cap. Uncheck it to enter a per-machine value. Blank fields keep the current setting; checking an option clears any unsaved value for that resource."
+      />
+      <Form.Checkbox
+        id="useGlobalCpuLimit"
+        title="CPU"
+        label="Use OrbStack's global CPU limit"
+        value={useGlobalCpuLimit}
+        onChange={(checked) => {
+          setUseGlobalCpuLimit(checked);
+          if (checked) setValue("cpu", "");
+        }}
       />
       <Form.Description title="Current CPU Limit" text={formatCpuLimit(currentLimits.cpu_limit)} />
-      <Form.TextField title="CPU Limit (Cores)" placeholder="Leave blank to keep current value" {...itemProps.cpu} />
+      {useGlobalCpuLimit ? (
+        <Form.Description title="CPU Limit (Cores)" text="Using OrbStack's global CPU limit." />
+      ) : (
+        <Form.TextField title="CPU Limit (Cores)" placeholder="Leave blank to keep current value" {...itemProps.cpu} />
+      )}
+      <Form.Checkbox
+        id="useGlobalMemoryLimit"
+        title="Memory"
+        label="Use OrbStack's global memory limit"
+        value={useGlobalMemoryLimit}
+        onChange={(checked) => {
+          setUseGlobalMemoryLimit(checked);
+          if (checked) setValue("memory", "");
+        }}
+      />
       <Form.Description
         title="Current Memory Limit"
         text={formatGiBLimit(currentLimits.memory_limit_mib, 1024, "Uses global limit")}
       />
-      <Form.TextField
-        title="Memory Limit (GiB)"
-        placeholder="Leave blank to keep current value"
-        {...itemProps.memory}
+      {useGlobalMemoryLimit ? (
+        <Form.Description title="Memory Limit (GiB)" text="Using OrbStack's global memory limit." />
+      ) : (
+        <Form.TextField
+          title="Memory Limit (GiB)"
+          placeholder="Leave blank to keep current value"
+          {...itemProps.memory}
+        />
+      )}
+      <Form.Checkbox
+        id="noPerMachineDiskLimit"
+        title="Disk"
+        label="No per-machine disk limit"
+        value={noPerMachineDiskLimit}
+        onChange={(checked) => {
+          setNoPerMachineDiskLimit(checked);
+          if (checked) setValue("disk", "");
+        }}
       />
       <Form.Description
         title="Current Disk Limit"
         text={formatGiBLimit(currentLimits.disk_limit_bytes, 1024 ** 3, "No per-machine limit")}
       />
-      <Form.TextField
-        title="Disk Limit (Maximum GiB)"
-        placeholder="Leave blank to keep current value"
-        {...itemProps.disk}
-      />
+      {noPerMachineDiskLimit ? (
+        <Form.Description title="Disk Limit (Maximum GiB)" text="This machine has no per-machine disk cap." />
+      ) : (
+        <Form.TextField
+          title="Disk Limit (Maximum GiB)"
+          placeholder="Leave blank to keep current value"
+          {...itemProps.disk}
+        />
+      )}
     </Form>
   );
 }

@@ -271,10 +271,6 @@ export default function MachineResourceLimitsEdit({
         </ActionPanel>
       }
     >
-      <Form.Description
-        title="How Editing Works"
-        text="Check CPU or Memory to use OrbStack's global limit. Check Disk for no disk limit. Uncheck an option to enter a custom value. Blank fields keep the current setting; checking an option clears any unsaved value for that resource."
-      />
       <Form.Description title="Current CPU Limit" text={formatCpuLimit(currentLimits.cpu_limit)} />
       <Form.Checkbox
         id="useGlobalCpuLimit"

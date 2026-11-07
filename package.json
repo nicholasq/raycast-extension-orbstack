@@ -32,7 +32,7 @@
     {
       "name": "defaultDiskLimit",
       "title": "Default Disk Limit (GiB)",
-      "description": "Pre-fill the maximum disk capacity for new machines. Leave blank to omit a per-machine disk limit.",
+      "description": "Pre-fill the maximum disk capacity for new machines. Leave blank for no disk limit.",
       "type": "textfield",
       "required": false,
       "default": ""

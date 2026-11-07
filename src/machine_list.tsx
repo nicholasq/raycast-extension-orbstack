@@ -119,7 +119,7 @@ export default function MachineList() {
                             text={formatGiBLimit(
                               machineInfo.record.config.disk_limit_bytes,
                               1024 ** 3,
-                              "No per-machine limit",
+                              "No disk limit",
                             )}
                             icon={Icon.HardDrive}
                           />

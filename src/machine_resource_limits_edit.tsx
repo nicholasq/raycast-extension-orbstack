@@ -53,10 +53,10 @@ function createResetUpdate(machineName: string, resource: ResourceLimitName): Re
     case "disk":
       return {
         key: `machine.${machineName}.disk_bytes`,
-        label: "per-machine disk limit",
+        label: "disk limit",
         value: "0",
-        successMessage: "The per-machine disk limit was removed.",
-        failureDescription: "remove the per-machine disk limit",
+        successMessage: "Disk limit removed.",
+        failureDescription: "remove the disk limit",
       };
   }
 }
@@ -85,6 +85,23 @@ function validatePositiveGiB(value: string | undefined, label: string, unitsPerG
     : `${label} is outside the supported range`;
 }
 
+function validateDiskLimit(value: string | undefined, currentUsageBytes: number | undefined): string | undefined {
+  const baseError = validatePositiveGiB(value, "Disk limit", 1024 ** 3);
+  if (baseError || !value?.trim()) return baseError;
+
+  if (currentUsageBytes == null || !Number.isFinite(currentUsageBytes) || currentUsageBytes < 0) {
+    return "Unable to verify current disk usage. Refresh machine details and try again.";
+  }
+
+  const limitBytes = Math.round(Number(value.trim()) * 1024 ** 3);
+  if (limitBytes <= currentUsageBytes) {
+    const currentUsageGiB = Number((currentUsageBytes / 1024 ** 3).toFixed(2));
+    return `Disk limit must be greater than current usage (${currentUsageGiB} GiB).`;
+  }
+
+  return undefined;
+}
+
 function hasResourceLimit(limit: number | null | undefined): boolean {
   return limit != null && limit > 0;
 }
@@ -104,8 +121,10 @@ export default function MachineResourceLimitsEdit({
   currentLimits: initialCurrentLimits,
   refresh,
 }: MachineResourceLimitsEditProps) {
-  const { machineInfo, revalidateMachineInfo } = useMachineInfo(machineName);
-  const currentLimits = machineInfo?.record.name === machineName ? machineInfo.record.config : initialCurrentLimits;
+  const { machineInfo, isLoadingMachineInfo, revalidateMachineInfo } = useMachineInfo(machineName);
+  const currentMachineInfo = machineInfo?.record.name === machineName ? machineInfo : null;
+  const currentLimits = currentMachineInfo?.record.config ?? initialCurrentLimits;
+  const currentDiskUsageBytes = currentMachineInfo?.disk_size;
   const [useGlobalCpuLimit, setUseGlobalCpuLimit] = useState(() => !hasResourceLimit(currentLimits.cpu_limit));
   const [useGlobalMemoryLimit, setUseGlobalMemoryLimit] = useState(
     () => !hasResourceLimit(currentLimits.memory_limit_mib),
@@ -200,12 +219,22 @@ export default function MachineResourceLimitsEdit({
     if (noPerMachineDiskLimit && hasResourceLimit(currentLimits.disk_limit_bytes)) {
       updates.push(createResetUpdate(machineName, "disk"));
     } else if (!noPerMachineDiskLimit && disk) {
+      const diskError = validateDiskLimit(disk, currentDiskUsageBytes);
+      if (diskError) {
+        showToast({
+          title: "Invalid Disk Limit",
+          message: diskError,
+          style: Toast.Style.Failure,
+        });
+        return;
+      }
+
       updates.push({
         key: `machine.${machineName}.disk_bytes`,
-        label: "disk maximum",
+        label: "disk limit",
         value: String(Math.round(Number(disk) * 1024 ** 3)),
-        successMessage: "Disk maximum updated.",
-        failureDescription: "update the disk maximum",
+        successMessage: "Disk limit updated.",
+        failureDescription: "update the disk limit",
       });
     } else if (!disk) {
       setNoPerMachineDiskLimit(!hasResourceLimit(currentLimits.disk_limit_bytes));
@@ -228,14 +257,14 @@ export default function MachineResourceLimitsEdit({
     validation: {
       cpu: validatePositiveInteger,
       memory: (value) => validatePositiveGiB(value, "Memory limit", 1024),
-      disk: (value) => validatePositiveGiB(value, "Disk limit", 1024 ** 3),
+      disk: (value) => validateDiskLimit(value, currentDiskUsageBytes),
     },
   });
 
   return (
     <Form
       navigationTitle={`Edit Resource Limits: ${machineName}`}
-      isLoading={isLoading}
+      isLoading={isLoading || isLoadingMachineInfo}
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Update Limits" onSubmit={handleSubmit} />
@@ -244,8 +273,9 @@ export default function MachineResourceLimitsEdit({
     >
       <Form.Description
         title="How Editing Works"
-        text="Check an option to use OrbStack's global CPU or memory limit, or remove the per-machine disk cap. Uncheck it to enter a per-machine value. Blank fields keep the current setting; checking an option clears any unsaved value for that resource."
+        text="Check CPU or Memory to use OrbStack's global limit. Check Disk for no disk limit. Uncheck an option to enter a custom value. Blank fields keep the current setting; checking an option clears any unsaved value for that resource."
       />
+      <Form.Description title="Current CPU Limit" text={formatCpuLimit(currentLimits.cpu_limit)} />
       <Form.Checkbox
         id="useGlobalCpuLimit"
         title="CPU"
@@ -256,12 +286,15 @@ export default function MachineResourceLimitsEdit({
           if (checked) setValue("cpu", "");
         }}
       />
-      <Form.Description title="Current CPU Limit" text={formatCpuLimit(currentLimits.cpu_limit)} />
       {useGlobalCpuLimit ? (
         <Form.Description title="CPU Limit (Cores)" text="Using OrbStack's global CPU limit." />
       ) : (
         <Form.TextField title="CPU Limit (Cores)" placeholder="Leave blank to keep current value" {...itemProps.cpu} />
       )}
+      <Form.Description
+        title="Current Memory Limit"
+        text={formatGiBLimit(currentLimits.memory_limit_mib, 1024, "Uses global limit")}
+      />
       <Form.Checkbox
         id="useGlobalMemoryLimit"
         title="Memory"
@@ -272,10 +305,6 @@ export default function MachineResourceLimitsEdit({
           if (checked) setValue("memory", "");
         }}
       />
-      <Form.Description
-        title="Current Memory Limit"
-        text={formatGiBLimit(currentLimits.memory_limit_mib, 1024, "Uses global limit")}
-      />
       {useGlobalMemoryLimit ? (
         <Form.Description title="Memory Limit (GiB)" text="Using OrbStack's global memory limit." />
       ) : (
@@ -285,10 +314,14 @@ export default function MachineResourceLimitsEdit({
           {...itemProps.memory}
         />
       )}
+      <Form.Description
+        title="Current Disk Limit"
+        text={formatGiBLimit(currentLimits.disk_limit_bytes, 1024 ** 3, "No disk limit")}
+      />
       <Form.Checkbox
         id="noPerMachineDiskLimit"
         title="Disk"
-        label="No per-machine disk limit"
+        label="No disk limit"
         value={noPerMachineDiskLimit}
         onChange={(checked) => {
           setNoPerMachineDiskLimit(checked);
@@ -296,11 +329,15 @@ export default function MachineResourceLimitsEdit({
         }}
       />
       <Form.Description
-        title="Current Disk Limit"
-        text={formatGiBLimit(currentLimits.disk_limit_bytes, 1024 ** 3, "No per-machine limit")}
+        title="Current Disk Usage"
+        text={
+          currentDiskUsageBytes == null
+            ? "Unavailable; refresh before setting a disk limit."
+            : `${(currentDiskUsageBytes / 1024 ** 3).toFixed(2)} GiB in use`
+        }
       />
       {noPerMachineDiskLimit ? (
-        <Form.Description title="Disk Limit (Maximum GiB)" text="This machine has no per-machine disk cap." />
+        <Form.Description title="Disk Limit (Maximum GiB)" text="No disk limit is set." />
       ) : (
         <Form.TextField
           title="Disk Limit (Maximum GiB)"

@@ -336,9 +336,7 @@ export default function MachineResourceLimitsEdit({
             : `${(currentDiskUsageBytes / 1024 ** 3).toFixed(2)} GiB in use`
         }
       />
-      {noPerMachineDiskLimit ? (
-        <Form.Description title="Disk Limit (Maximum GiB)" text="No disk limit is set." />
-      ) : (
+      {!noPerMachineDiskLimit && (
         <Form.TextField
           title="Disk Limit (Maximum GiB)"
           placeholder="Leave blank to keep current value"

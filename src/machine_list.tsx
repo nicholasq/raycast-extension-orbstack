@@ -1,4 +1,4 @@
-import { List, ActionPanel, Action, Icon, confirmAlert } from "@raycast/api";
+import { List, ActionPanel, Action, Icon } from "@raycast/api";
 import { useExec } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import { ORB_CTL } from "./orbstack";
@@ -254,19 +254,7 @@ export default function MachineList() {
                 onAction={stopAll}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "x" }}
               />
-              <Action
-                title="Restart All Machines"
-                onAction={async () => {
-                  const confirmed = await confirmAlert({
-                    title: "Restart All Machines?",
-                    message: "Running machines and their workloads may be interrupted.",
-                    primaryAction: { title: "Restart All Machines" },
-                  });
-                  if (confirmed) {
-                    restartAll();
-                  }
-                }}
-              />
+              <Action title="Restart All Machines" onAction={restartAll} />
             </ActionPanel>
           }
         />
